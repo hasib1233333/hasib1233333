@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-1000x1000 Random-Obstacle Path Planning with No-Overlap Final Path Visualization
+500x500 Random-Obstacle Path Planning with Enhanced Visualization
 
-- Generates a 1000x1000 occupancy grid with random rectangles as obstacles.
+- Generates a 500x500 occupancy grid with random rectangles as obstacles.
 - Ensures start and goal are connected by carving minimal corridors if needed.
 - Computes distance transform, medial-axis skeleton, and shortest path over a clearance-aware skeleton graph.
 - Prevents extra/overlapping red line artifacts by simplifying the path and breaking long jumps in plotting.
+- Enhanced realistic visualization with professional styling.
 - Saves outputs in ./outputs/: distance_field.png, skeleton.png, final_path.png
 """
 
@@ -23,13 +24,13 @@ import networkx as nx
 
 # --------------------------- Configuration ---------------------------
 
-GRID_H = 1000
-GRID_W = 1000
-NUM_RECTS = 600
-RECT_H_RANGE = (8, 40)
-RECT_W_RANGE = (8, 40)
-WALL_THICK = 6
-CORRIDOR_WIDTH = 5
+GRID_H = 500
+GRID_W = 500
+NUM_RECTS = 150  # Scaled down from 600 (1000x1000) to maintain similar density
+RECT_H_RANGE = (5, 25)  # Slightly adjusted for 500x500 grid
+RECT_W_RANGE = (5, 25)
+WALL_THICK = 3
+CORRIDOR_WIDTH = 3
 RNG_SEED = 42
 
 OUT_DIR = "outputs"
@@ -258,34 +259,78 @@ def break_long_jumps_for_plot(path: List[Tuple[float, float]], max_jump: float =
 # --------------------------- Visualization --------------------------
 
 def plot_distance_field(dist: np.ndarray, occ: np.ndarray, out_path: str):
-    plt.figure(figsize=(7, 7))
-    plt.imshow(dist, cmap='viridis')
-    plt.title("Distance Transform (Wave Propagation)")
-    plt.colorbar(label="Clearance (px)")
-    yy, xx = np.where(occ == 0)
-    plt.scatter(xx, yy, s=1, c='k', marker='s', label='Obstacles')
-    plt.legend(loc='lower right', fontsize=8)
+    plt.rcParams['font.family'] = 'Times New Roman'
+    plt.rcParams['font.size'] = 11
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    
+    # High-quality distance field visualization
+    im = ax.imshow(dist, cmap='plasma', interpolation='bilinear', aspect='equal')
+    
+    # Overlay obstacles with semi-transparency for realism
+    obstacle_mask = np.zeros((*occ.shape, 4))
+    obstacle_mask[occ == 0] = [0.2, 0.2, 0.2, 0.95]  # Dark gray with high opacity
+    ax.imshow(obstacle_mask, interpolation='nearest', aspect='equal')
+    
+    ax.set_title("Distance Transform - Wave Propagation from Free Space", fontsize=14, fontweight='bold', pad=15)
+    ax.set_xlabel("X Coordinate (pixels)", fontsize=12, fontweight='bold')
+    ax.set_ylabel("Y Coordinate (pixels)", fontsize=12, fontweight='bold')
+    
+    # Enhanced colorbar
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label("Clearance Distance (pixels)", fontsize=11, fontweight='bold')
+    cbar.ax.tick_params(labelsize=10)
+    
+    ax.grid(False)
     plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
+    plt.savefig(out_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close()
 
 def plot_skeleton(occ: np.ndarray, skel: np.ndarray, out_path: str):
-    plt.figure(figsize=(7, 7))
-    plt.imshow(occ == 1, cmap='gray')
+    plt.rcParams['font.family'] = 'Times New Roman'
+    plt.rcParams['font.size'] = 11
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    
+    # Create professional two-tone background
+    base_img = np.ones((*occ.shape, 3))
+    base_img[occ == 1] = [0.95, 0.95, 0.95]  # Light gray for free space
+    base_img[occ == 0] = [0.15, 0.15, 0.15]  # Dark gray for obstacles
+    ax.imshow(base_img, interpolation='bilinear', aspect='equal')
+    
+    # Enhanced skeleton visualization
     yy, xx = np.where(skel)
-    plt.scatter(xx, yy, s=1, c='red', marker='s', label='Skeleton')
-    plt.title("Medial-Axis Skeleton over Free Space")
-    plt.legend(loc='lower right', fontsize=8)
+    ax.scatter(xx, yy, s=2.5, c='#FF3366', marker='s', alpha=0.85, 
+               edgecolors='none', label='Medial-Axis Skeleton', rasterized=True)
+    
+    ax.set_title("Medial-Axis Skeleton - Topological Structure of Free Space", 
+                 fontsize=14, fontweight='bold', pad=15)
+    ax.set_xlabel("X Coordinate (pixels)", fontsize=12, fontweight='bold')
+    ax.set_ylabel("Y Coordinate (pixels)", fontsize=12, fontweight='bold')
+    
+    legend = ax.legend(loc='upper right', fontsize=10, framealpha=0.95, 
+                       edgecolor='gray', fancybox=True, shadow=True)
+    legend.get_frame().set_facecolor('white')
+    
+    ax.grid(False)
     plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
+    plt.savefig(out_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close()
 
 def plot_final_path(dist: np.ndarray, skel: np.ndarray, path_xy: List[Tuple[int, int]],
                     start: Tuple[int, int], goal: Tuple[int, int], out_path: str):
-    plt.figure(figsize=(7, 7))
-    plt.imshow(dist, cmap='viridis')
+    plt.rcParams['font.family'] = 'Times New Roman'
+    plt.rcParams['font.size'] = 11
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    
+    # Enhanced distance field background
+    im = ax.imshow(dist, cmap='viridis', interpolation='bilinear', aspect='equal', alpha=0.9)
+    
+    # Show skeleton with subtle visibility
     yy, xx = np.where(skel)
-    plt.scatter(xx, yy, s=1, c='white', marker='s', alpha=0.6, label='Skeleton')
+    ax.scatter(xx, yy, s=1.5, c='white', marker='s', alpha=0.4, 
+               edgecolors='none', label='Skeleton', rasterized=True)
 
     # 1) Smooth with reflection padding (avoids edge jumps)
     path_f = smooth_path_reflect(path_xy, k=7)
@@ -296,15 +341,38 @@ def plot_final_path(dist: np.ndarray, skel: np.ndarray, path_xy: List[Tuple[int,
     # 3) Break long jumps so Matplotlib won't draw straight lines across the figure
     px, py = break_long_jumps_for_plot(path_f, max_jump=2.1)
 
-    # 4) Draw; NaNs will split segments; no extra line possible
-    plt.plot(px, py, c='red', linewidth=2.0, solid_capstyle='round', label='Final Path', zorder=5)
+    # 4) Draw enhanced path with glow effect
+    # Outer glow
+    ax.plot(px, py, c='yellow', linewidth=5.0, alpha=0.3, solid_capstyle='round', 
+            solid_joinstyle='round', zorder=4)
+    # Main path
+    ax.plot(px, py, c='#FF1744', linewidth=2.8, solid_capstyle='round', 
+            solid_joinstyle='round', label='Optimal Path', zorder=5, antialiased=True)
 
-    plt.scatter([start[1]], [start[0]], c='lime', s=40, marker='o', label='Start', zorder=6)
-    plt.scatter([goal[1]], [goal[0]], c='cyan', s=40, marker='x', label='Goal', zorder=6)
-    plt.title("Random 1000x1000 Path on Medial-Axis Skeleton")
-    plt.legend(loc='lower right', fontsize=8)
+    # Enhanced start and goal markers
+    ax.scatter([start[1]], [start[0]], c='#00E676', s=150, marker='o', 
+               label='Start', zorder=6, edgecolors='white', linewidths=2.5)
+    ax.scatter([goal[1]], [goal[0]], c='#00E5FF', s=200, marker='*', 
+               label='Goal', zorder=6, edgecolors='white', linewidths=2.5)
+    
+    ax.set_title("Optimal Path Planning on 500×500 Grid with Random Obstacles", 
+                 fontsize=14, fontweight='bold', pad=15)
+    ax.set_xlabel("X Coordinate (pixels)", fontsize=12, fontweight='bold')
+    ax.set_ylabel("Y Coordinate (pixels)", fontsize=12, fontweight='bold')
+    
+    # Enhanced legend
+    legend = ax.legend(loc='upper right', fontsize=10, framealpha=0.95, 
+                       edgecolor='gray', fancybox=True, shadow=True)
+    legend.get_frame().set_facecolor('white')
+    
+    # Enhanced colorbar
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label("Clearance Distance (pixels)", fontsize=11, fontweight='bold')
+    cbar.ax.tick_params(labelsize=10)
+    
+    ax.grid(False)
     plt.tight_layout()
-    plt.savefig(out_path, dpi=200)
+    plt.savefig(out_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close()
 
 # --------------------------- Main --------------------------
